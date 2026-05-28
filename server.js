@@ -31,7 +31,7 @@ const db = mysql.createConnection({
   user: process.env.MYSQLUSER || 'root',
   password: process.env.MYSQLPASSWORD || 'swetha17',
   database: process.env.MYSQLDATABASE || 'school_db',
-  port: process.env.MYSQLPORT || 3307,
+  port: process.env.MYSQLPORT || 3306,
   multipleStatements: true  // Allows running multiple SQL statements at once
 });
 
@@ -283,8 +283,13 @@ app.get('/admin', (req, res) => {
 });
 
 // -------------------------------------------------------
-// Start the Express Server
+// Start the Express Server (only when running locally, not on Vercel)
 // -------------------------------------------------------
-app.listen(PORT, () => {
-  console.log(`✅ Express server started on port ${PORT}`);
-});
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`✅ Express server started on port ${PORT}`);
+  });
+}
+
+// Export the app for Vercel serverless deployment
+module.exports = app;

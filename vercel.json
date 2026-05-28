@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    { "src": "/student-login", "dest": "server.js" },
+    { "src": "/teacher-login", "dest": "server.js" },
+    { "src": "/student-history", "dest": "server.js" },
+    { "src": "/teacher-history", "dest": "server.js" },
+    { "src": "/admin", "dest": "server.js" },
+    { "src": "/(.*)", "dest": "public/$1" }
+  ]
+}
