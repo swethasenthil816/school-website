@@ -38,12 +38,15 @@ const db = mysql.createConnection({
 // -------------------------------------------------------
 // Step 1: Connect to MySQL Server (without selecting a DB)
 // -------------------------------------------------------
+let dbConnected = false;
+let dbError = null;
+
 db.connect((err) => {
   if (err) {
     console.error('❌ MySQL Connection Failed:', err.message);
-    console.log('');
-    console.log('👉 Make sure MySQL is running and your password is correct in server.js');
-    process.exit(1); // Stop the server if DB connection fails
+    dbError = err.message;
+    dbConnected = false;
+    return;
   }
   console.log('✅ Connected to MySQL Server');
 
@@ -51,7 +54,9 @@ db.connect((err) => {
   db.query('CREATE DATABASE IF NOT EXISTS school_db', (err) => {
     if (err) {
       console.error('❌ Failed to create database:', err.message);
-      process.exit(1);
+      dbError = err.message;
+      dbConnected = false;
+      return;
     }
     console.log('✅ Database "school_db" ready');
 
@@ -59,10 +64,14 @@ db.connect((err) => {
     db.changeUser({ database: 'school_db' }, (err) => {
       if (err) {
         console.error('❌ Failed to switch database:', err.message);
-        process.exit(1);
+        dbError = err.message;
+        dbConnected = false;
+        return;
       }
 
       // Step 4: Create all required tables
+      dbConnected = true;
+      dbError = null;
       createTables();
     });
   });
@@ -134,6 +143,20 @@ function createTables() {
   console.log('');
 }
 
+// -------------------------------------------------------
+// Middleware to check database connection status
+// -------------------------------------------------------
+const checkDbConnection = (req, res, next) => {
+  if (!dbConnected) {
+    return res.status(500).json({
+      success: false,
+      message: 'Database connection is not established. If you are running on Vercel, please make sure you have set up your cloud MySQL database and configured the environment variables (MYSQLHOST, MYSQLUSER, MYSQLPASSWORD, MYSQLDATABASE, MYSQLPORT) in the Vercel Dashboard.',
+      error: dbError
+    });
+  }
+  next();
+};
+
 // ============================================================
 //  API ROUTES
 // ============================================================
@@ -144,7 +167,7 @@ function createTables() {
 // - If the student doesn't exist yet → auto-register them.
 // - Then log the login in student_login_history.
 // -------------------------------------------------------
-app.post('/student-login', (req, res) => {
+app.post('/student-login', checkDbConnection, (req, res) => {
   const { student_name, reg_no } = req.body;
 
   // Validate: both fields must be non-empty
@@ -187,7 +210,7 @@ app.post('/student-login', (req, res) => {
 // - If the teacher doesn't exist yet → auto-register them.
 // - Then log the login in teacher_login_history.
 // -------------------------------------------------------
-app.post('/teacher-login', (req, res) => {
+app.post('/teacher-login', checkDbConnection, (req, res) => {
   const { username, password } = req.body;
 
   // Validate: both fields must be non-empty
@@ -228,7 +251,7 @@ app.post('/teacher-login', (req, res) => {
 // Returns unique teacher login history with latest login time
 // Uses GROUP BY to show only one entry per teacher
 // -------------------------------------------------------
-app.get('/teacher-history', (req, res) => {
+app.get('/teacher-history', checkDbConnection, (req, res) => {
   const query = `
     SELECT 
       MIN(username) AS username,
@@ -253,7 +276,7 @@ app.get('/teacher-history', (req, res) => {
 // Returns unique student login history with latest login time
 // Uses GROUP BY to show only one entry per student
 // -------------------------------------------------------
-app.get('/student-history', (req, res) => {
+app.get('/student-history', checkDbConnection, (req, res) => {
   const query = `
     SELECT 
       MIN(student_name) AS student_name,
