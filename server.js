@@ -23,13 +23,15 @@ app.use(express.static(path.join(__dirname, 'public'))); // Serve static files f
 
 // -------------------------------------------------------
 // MySQL Database Connection
-// IMPORTANT: Change 'your_password' to your MySQL root password
+// Uses environment variables for deployment (Railway, Render, etc.)
+// For local development, set these in a .env file or use defaults
 // -------------------------------------------------------
 const db = mysql.createConnection({
-  host: '127.0.0.1',        // MySQL host
-  port: 3307,               // Your MySQL port (found in my.ini)
-  user: 'root',
-  password: 'swetha17',     // MySQL root password
+  host: process.env.MYSQLHOST || 'localhost',
+  user: process.env.MYSQLUSER || 'root',
+  password: process.env.MYSQLPASSWORD || 'swetha17',
+  database: process.env.MYSQLDATABASE || 'school_db',
+  port: process.env.MYSQLPORT || 3307,
   multipleStatements: true  // Allows running multiple SQL statements at once
 });
 
