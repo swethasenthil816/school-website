@@ -3,8 +3,8 @@
 //  Handles: Login forms, API calls, UI state management
 // ============================================================
 
-// Backend API base URL
-const API_BASE = 'http://localhost:3000';
+// Backend API base URL (dynamic to support local file previews, local server, and Vercel deployment)
+const API_BASE = window.location.origin.startsWith('file://') ? 'http://localhost:3000' : '';
 
 // -------------------------------------------------------
 // UI STATE MANAGEMENT

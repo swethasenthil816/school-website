@@ -160,7 +160,7 @@
        Fetches teacher and student history from the backend API
   ============================================================ -->
   <script>
-    const API_BASE = 'http://localhost:3000';
+    const API_BASE = window.location.origin.startsWith('file://') ? 'http://localhost:3000' : '';
 
     // -------------------------------------------------------
     // Format date to readable string
