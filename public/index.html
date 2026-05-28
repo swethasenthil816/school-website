@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduPortal – School Management System</title>
+  <meta name="description" content="EduPortal - A modern school management system for students and teachers. Login to access your portal." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ============================================================
+       ANIMATED BACKGROUND PARTICLES
+  ============================================================ -->
+  <div class="bg-particles">
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+  </div>
+
+  <!-- ============================================================
+       MAIN WRAPPER
+  ============================================================ -->
+  <div class="main-wrapper">
+
+    <!-- HEADER / LOGO -->
+    <header class="site-header">
+      <div class="logo">
+        <div class="logo-icon">🎓</div>
+        <div class="logo-text">
+          <span class="logo-title">EduPortal</span>
+          <span class="logo-subtitle">School Management System</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- HERO SECTION -->
+    <section class="hero">
+      <h1 class="hero-title">Welcome to <span class="gradient-text">EduPortal</span></h1>
+      <p class="hero-subtitle">Your gateway to seamless school management. Choose your portal to get started.</p>
+    </section>
+
+    <!-- ============================================================
+         LOGIN SELECTION CARDS
+    ============================================================ -->
+    <section class="portal-cards" id="portal-selection">
+      <!-- Student Card -->
+      <div class="portal-card student-card" id="student-card-btn" onclick="showLogin('student')" role="button" tabindex="0" aria-label="Open Student Login">
+        <div class="card-glow student-glow"></div>
+        <div class="card-icon">🎒</div>
+        <h2 class="card-title">Student Portal</h2>
+        <p class="card-desc">Access your academic records, schedules, and learning resources.</p>
+        <div class="card-features">
+          <span class="feature-tag">📚 Academics</span>
+          <span class="feature-tag">📅 Schedule</span>
+          <span class="feature-tag">📊 Progress</span>
+        </div>
+        <button class="card-btn student-btn">
+          <span>Student Login</span>
+          <span class="btn-arrow">→</span>
+        </button>
+      </div>
+
+      <!-- Divider -->
+      <div class="card-divider">
+        <div class="divider-line"></div>
+        <span class="divider-text">OR</span>
+        <div class="divider-line"></div>
+      </div>
+
+      <!-- Teacher Card -->
+      <div class="portal-card teacher-card" id="teacher-card-btn" onclick="showLogin('teacher')" role="button" tabindex="0" aria-label="Open Teacher Login">
+        <div class="card-glow teacher-glow"></div>
+        <div class="card-icon">👨‍🏫</div>
+        <h2 class="card-title">Teacher Portal</h2>
+        <p class="card-desc">Manage classes, student records, attendance, and grading systems.</p>
+        <div class="card-features">
+          <span class="feature-tag">📝 Grades</span>
+          <span class="feature-tag">👥 Students</span>
+          <span class="feature-tag">📋 Reports</span>
+        </div>
+        <button class="card-btn teacher-btn">
+          <span>Teacher Login</span>
+          <span class="btn-arrow">→</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         STUDENT LOGIN FORM (hidden by default)
+    ============================================================ -->
+    <section class="login-section" id="student-login-section" style="display:none;">
+      <div class="login-card student-login-card">
+        <div class="login-card-header student-header">
+          <div class="login-card-icon">🎒</div>
+          <h2>Student Login</h2>
+          <p>Enter your credentials to access the student portal</p>
+        </div>
+
+        <form class="login-form" id="student-login-form" onsubmit="handleStudentLogin(event)">
+          <!-- Student Name Field -->
+          <div class="form-group">
+            <label for="student-name">Student Name</label>
+            <div class="input-wrapper">
+              <span class="input-icon">👤</span>
+              <input
+                type="text"
+                id="student-name"
+                name="student_name"
+                placeholder="Enter your full name"
+                required
+                autocomplete="name"
+              />
+            </div>
+          </div>
+
+          <!-- Register Number Field -->
+          <div class="form-group">
+            <label for="student-reg">Register Number</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🔢</span>
+              <input
+                type="text"
+                id="student-reg"
+                name="reg_no"
+                placeholder="e.g. REG001"
+                required
+                autocomplete="off"
+              />
+            </div>
+          </div>
+
+          <!-- Error / Success Message -->
+          <div class="form-message" id="student-message"></div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="submit-btn student-submit" id="student-submit-btn">
+            <span class="btn-text">Login to Student Portal</span>
+            <span class="btn-spinner" style="display:none;">⏳</span>
+          </button>
+
+          <!-- Back Button -->
+          <button type="button" class="back-btn" onclick="showPortalSelection()">
+            ← Back to Portal Selection
+          </button>
+        </form>
+
+        <!-- Open access hint -->
+        <div class="credentials-hint">
+          <p>✅ <strong>Any</strong> Student Name &amp; Register Number will work!</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         TEACHER LOGIN FORM (hidden by default)
+    ============================================================ -->
+    <section class="login-section" id="teacher-login-section" style="display:none;">
+      <div class="login-card teacher-login-card">
+        <div class="login-card-header teacher-header">
+          <div class="login-card-icon">👨‍🏫</div>
+          <h2>Teacher Login</h2>
+          <p>Enter your credentials to access the teacher portal</p>
+        </div>
+
+        <form class="login-form" id="teacher-login-form" onsubmit="handleTeacherLogin(event)">
+          <!-- Username Field -->
+          <div class="form-group">
+            <label for="teacher-username">Username</label>
+            <div class="input-wrapper">
+              <span class="input-icon">👤</span>
+              <input
+                type="text"
+                id="teacher-username"
+                name="username"
+                placeholder="Enter your username"
+                required
+                autocomplete="username"
+              />
+            </div>
+          </div>
+
+          <!-- Password Field -->
+          <div class="form-group">
+            <label for="teacher-password">Password</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🔒</span>
+              <input
+                type="password"
+                id="teacher-password"
+                name="password"
+                placeholder="Enter your password"
+                required
+                autocomplete="current-password"
+              />
+              <!-- Toggle password visibility -->
+              <button type="button" class="toggle-password" onclick="togglePassword()" id="toggle-pwd-btn" aria-label="Toggle password visibility">👁️</button>
+            </div>
+          </div>
+
+          <!-- Error / Success Message -->
+          <div class="form-message" id="teacher-message"></div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="submit-btn teacher-submit" id="teacher-submit-btn">
+            <span class="btn-text">Login to Teacher Portal</span>
+            <span class="btn-spinner" style="display:none;">⏳</span>
+          </button>
+
+          <!-- Back Button -->
+          <button type="button" class="back-btn" onclick="showPortalSelection()">
+            ← Back to Portal Selection
+          </button>
+        </form>
+
+        <!-- Open access hint -->
+        <div class="credentials-hint">
+          <p>✅ <strong>Any</strong> Username &amp; Password will work!</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         STUDENT HOME PAGE (shown after student login)
+    ============================================================ -->
+    <section class="home-section" id="student-home" style="display:none;">
+      <div class="home-card student-home-card">
+        <div class="home-header student-home-header">
+          <div class="home-avatar">🎒</div>
+          <div>
+            <h2>Welcome back, <span id="student-welcome-name" class="highlight-name">Student</span>!</h2>
+            <p>Register No: <strong id="student-welcome-reg">—</strong></p>
+          </div>
+          <button class="logout-btn" onclick="logout()" id="student-logout-btn">Logout</button>
+        </div>
+
+        <div class="home-stats">
+          <div class="stat-card">
+            <div class="stat-icon">📚</div>
+            <div class="stat-info">
+              <span class="stat-value">8</span>
+              <span class="stat-label">Subjects</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📅</div>
+            <div class="stat-info">
+              <span class="stat-value">95%</span>
+              <span class="stat-label">Attendance</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-info">
+              <span class="stat-value">A+</span>
+              <span class="stat-label">Grade</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🏆</div>
+            <div class="stat-info">
+              <span class="stat-value">12</span>
+              <span class="stat-label">Achievements</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-grid">
+          <div class="home-widget">
+            <h3>📋 Today's Schedule</h3>
+            <ul class="schedule-list">
+              <li><span class="time-badge">9:00 AM</span> Mathematics</li>
+              <li><span class="time-badge">11:00 AM</span> Physics</li>
+              <li><span class="time-badge">1:00 PM</span> English Literature</li>
+              <li><span class="time-badge">3:00 PM</span> Computer Science</li>
+            </ul>
+          </div>
+          <div class="home-widget">
+            <h3>📢 Announcements</h3>
+            <ul class="announcement-list">
+              <li>🔔 Mid-term exams start next Monday</li>
+              <li>🔔 Sports day on June 15th</li>
+              <li>🔔 Library books due by Friday</li>
+              <li>🔔 Parent-Teacher meeting on June 20th</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         TEACHER HOME PAGE (shown after teacher login)
+    ============================================================ -->
+    <section class="home-section" id="teacher-home" style="display:none;">
+      <div class="home-card teacher-home-card">
+
+        <!-- Header -->
+        <div class="home-header teacher-home-header">
+          <div class="home-avatar">👨‍🏫</div>
+          <div>
+            <h2>Welcome back, <span id="teacher-welcome-name" class="highlight-name">Teacher</span>!</h2>
+            <p>Teacher Portal — School Management System</p>
+          </div>
+          <button class="logout-btn" onclick="logout()" id="teacher-logout-btn">Logout</button>
+        </div>
+
+        <!-- ★ ADMIN DASHBOARD FEATURED SECTION ★ -->
+        <div class="dashboard-feature-section">
+          <div class="dashboard-feature-left">
+            <div class="dashboard-feature-icon">⚙️</div>
+            <div>
+              <h3 class="dashboard-feature-title">Admin Dashboard</h3>
+              <p class="dashboard-feature-desc">View all teacher and student login history, track activity, and monitor who accessed the portal.</p>
+              <div class="dashboard-feature-tags">
+                <span class="feature-tag">👨‍🏫 Teacher Logins</span>
+                <span class="feature-tag">🎒 Student Logins</span>
+                <span class="feature-tag">🕒 Login Times</span>
+              </div>
+            </div>
+          </div>
+          <a href="dashboard.html" class="dashboard-feature-btn" id="view-dashboard-btn">
+            <span>Open Dashboard</span>
+            <span class="btn-arrow">→</span>
+          </a>
+        </div>
+
+        <!-- Stats -->
+        <div class="home-stats">
+          <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+              <span class="stat-value">42</span>
+              <span class="stat-label">Students</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📚</div>
+            <div class="stat-info">
+              <span class="stat-value">5</span>
+              <span class="stat-label">Classes</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📝</div>
+            <div class="stat-info">
+              <span class="stat-value">18</span>
+              <span class="stat-label">Assignments</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-info">
+              <span class="stat-value">91%</span>
+              <span class="stat-label">Pass Rate</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Widgets -->
+        <div class="home-grid">
+          <div class="home-widget">
+            <h3>📋 Today's Classes</h3>
+            <ul class="schedule-list">
+              <li><span class="time-badge">9:00 AM</span> Grade 10 – Math</li>
+              <li><span class="time-badge">11:00 AM</span> Grade 11 – Calculus</li>
+              <li><span class="time-badge">1:00 PM</span> Grade 9 – Algebra</li>
+              <li><span class="time-badge">3:00 PM</span> Grade 12 – Statistics</li>
+            </ul>
+          </div>
+          <div class="home-widget">
+            <h3>⚡ Quick Actions</h3>
+            <div class="quick-actions">
+              <button class="action-btn" id="take-attendance-btn">📝 Take Attendance</button>
+              <button class="action-btn" id="add-grades-btn">📊 Add Grades</button>
+              <button class="action-btn" id="post-announcement-btn">📢 Post Announcement</button>
+              <button class="action-btn" id="view-reports-btn">📋 View Reports</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+      <p>© 2024 EduPortal School Management System. All rights reserved.</p>
+    </footer>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

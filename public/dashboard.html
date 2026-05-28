@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard – EduPortal</title>
+  <meta name="description" content="EduPortal Admin Dashboard - View teacher and student login history in real-time." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ============================================================
+       ANIMATED BACKGROUND PARTICLES
+  ============================================================ -->
+  <div class="bg-particles">
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+  </div>
+
+  <!-- ============================================================
+       DASHBOARD WRAPPER
+  ============================================================ -->
+  <div class="dashboard-wrapper">
+
+    <!-- DASHBOARD HEADER -->
+    <header class="dashboard-header">
+      <div>
+        <h1 class="dashboard-title">⚙️ Admin Dashboard</h1>
+        <p class="dashboard-subtitle" id="last-updated">Loading login history...</p>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <!-- Refresh Button -->
+        <button class="refresh-btn" onclick="loadAllHistory()" id="refresh-dashboard-btn">
+          <span id="refresh-icon">🔄</span> Refresh Data
+        </button>
+        <!-- Back to Home Button -->
+        <a href="index.html" class="home-link" id="back-to-home-btn">
+          🏠 Back to Home
+        </a>
+      </div>
+    </header>
+
+    <!-- ============================================================
+         DASHBOARD CONTENT GRID
+         Left: Teacher History | Right: Student History
+    ============================================================ -->
+    <div class="dashboard-grid">
+
+      <!-- ========================
+           LEFT PANEL: Teacher Login History
+      ========================= -->
+      <div class="dashboard-panel teacher-panel" id="teacher-panel">
+        <div class="panel-header">
+          <div class="panel-icon">👨‍🏫</div>
+          <div>
+            <h2>Teacher Login History</h2>
+            <p>Unique teachers with latest login</p>
+          </div>
+          <!-- Count badge will be updated by JS -->
+          <span class="panel-count" id="teacher-count">—</span>
+        </div>
+
+        <!-- Teacher History Table -->
+        <div class="history-table-wrapper">
+          <!-- Loading state shown while fetching -->
+          <div class="loading-state" id="teacher-loading">
+            <span class="loading-spinner">⏳</span>
+            <p>Loading teacher history...</p>
+          </div>
+
+          <!-- Table is hidden until data loads -->
+          <table class="history-table" id="teacher-table" style="display:none;">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Teacher Name</th>
+                <th>Total Logins</th>
+                <th>Latest Login Time</th>
+              </tr>
+            </thead>
+            <tbody id="teacher-tbody">
+              <!-- Rows inserted by JavaScript -->
+            </tbody>
+          </table>
+
+          <!-- Empty state shown when no data -->
+          <div class="empty-state" id="teacher-empty" style="display:none;">
+            <span class="empty-icon">📭</span>
+            <p>No teacher login history yet.</p>
+            <p style="font-size:0.8rem;margin-top:8px;">Login as a teacher to see entries here.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================
+           RIGHT PANEL: Student Login History
+      ========================= -->
+      <div class="dashboard-panel student-panel" id="student-panel">
+        <div class="panel-header">
+          <div class="panel-icon">🎒</div>
+          <div>
+            <h2>Student Login History</h2>
+            <p>Unique students with latest login</p>
+          </div>
+          <!-- Count badge will be updated by JS -->
+          <span class="panel-count" id="student-count">—</span>
+        </div>
+
+        <!-- Student History Table -->
+        <div class="history-table-wrapper">
+          <!-- Loading state -->
+          <div class="loading-state" id="student-loading">
+            <span class="loading-spinner">⏳</span>
+            <p>Loading student history...</p>
+          </div>
+
+          <!-- Table -->
+          <table class="history-table" id="student-table" style="display:none;">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Student Name</th>
+                <th>Register No.</th>
+                <th>Total Logins</th>
+                <th>Latest Login Time</th>
+              </tr>
+            </thead>
+            <tbody id="student-tbody">
+              <!-- Rows inserted by JavaScript -->
+            </tbody>
+          </table>
+
+          <!-- Empty state -->
+          <div class="empty-state" id="student-empty" style="display:none;">
+            <span class="empty-icon">📭</span>
+            <p>No student login history yet.</p>
+            <p style="font-size:0.8rem;margin-top:8px;">Login as a student to see entries here.</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end .dashboard-grid -->
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+      <p>© 2024 EduPortal School Management System — Admin Dashboard</p>
+    </footer>
+
+  </div><!-- end .dashboard-wrapper -->
+
+  <!-- ============================================================
+       INLINE DASHBOARD JAVASCRIPT
+       Fetches teacher and student history from the backend API
+  ============================================================ -->
+  <script>
+    const API_BASE = 'http://localhost:3000';
+
+    // -------------------------------------------------------
+    // Format date to readable string
+    // -------------------------------------------------------
+    function formatDate(dateString) {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    // -------------------------------------------------------
+    // Get initials from a name (for avatar)
+    // -------------------------------------------------------
+    function getInitials(name) {
+      if (!name) return '?';
+      return name.split(' ')
+        .map(word => word[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
+    }
+
+    // -------------------------------------------------------
+    // Load Teacher History
+    // Calls GET /teacher-history and renders the table
+    // -------------------------------------------------------
+    async function loadTeacherHistory() {
+      const loadingEl = document.getElementById('teacher-loading');
+      const tableEl = document.getElementById('teacher-table');
+      const emptyEl = document.getElementById('teacher-empty');
+      const tbody = document.getElementById('teacher-tbody');
+      const countEl = document.getElementById('teacher-count');
+
+      // Show loading, hide others
+      loadingEl.style.display = 'block';
+      tableEl.style.display = 'none';
+      emptyEl.style.display = 'none';
+
+      try {
+        // Fetch teacher history from API
+        const response = await fetch(API_BASE + '/teacher-history');
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.message || 'Failed to fetch data');
+        }
+
+        const records = data.data;
+        countEl.textContent = records.length;
+
+        if (records.length === 0) {
+          // No data - show empty state
+          loadingEl.style.display = 'none';
+          emptyEl.style.display = 'block';
+          return;
+        }
+
+        // Build table rows
+        tbody.innerHTML = '';
+        records.forEach((record, index) => {
+          const initials = getInitials(record.username);
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td style="color:var(--text-muted);font-size:0.8rem;">${index + 1}</td>
+            <td>
+              <div class="name-cell">
+                <div class="name-avatar teacher-avatar">${initials}</div>
+                ${escapeHtml(record.username)}
+              </div>
+            </td>
+            <td>
+              <span class="login-count-badge">${record.total_logins}x</span>
+            </td>
+            <td class="time-cell">${formatDate(record.latest_login)}</td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        // Show table
+        loadingEl.style.display = 'none';
+        tableEl.style.display = 'table';
+
+      } catch (error) {
+        console.error('Error loading teacher history:', error);
+        loadingEl.innerHTML = `
+          <span class="empty-icon">⚠️</span>
+          <p style="color:#fca5a5;">Failed to load data.</p>
+          <p style="font-size:0.8rem;margin-top:8px;color:var(--text-muted);">Make sure server.js is running on port 3000.</p>
+        `;
+      }
+    }
+
+    // -------------------------------------------------------
+    // Load Student History
+    // Calls GET /student-history and renders the table
+    // -------------------------------------------------------
+    async function loadStudentHistory() {
+      const loadingEl = document.getElementById('student-loading');
+      const tableEl = document.getElementById('student-table');
+      const emptyEl = document.getElementById('student-empty');
+      const tbody = document.getElementById('student-tbody');
+      const countEl = document.getElementById('student-count');
+
+      // Show loading
+      loadingEl.style.display = 'block';
+      tableEl.style.display = 'none';
+      emptyEl.style.display = 'none';
+
+      try {
+        // Fetch student history from API
+        const response = await fetch(API_BASE + '/student-history');
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.message || 'Failed to fetch data');
+        }
+
+        const records = data.data;
+        countEl.textContent = records.length;
+
+        if (records.length === 0) {
+          loadingEl.style.display = 'none';
+          emptyEl.style.display = 'block';
+          return;
+        }
+
+        // Build table rows
+        tbody.innerHTML = '';
+        records.forEach((record, index) => {
+          const initials = getInitials(record.student_name);
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td style="color:var(--text-muted);font-size:0.8rem;">${index + 1}</td>
+            <td>
+              <div class="name-cell">
+                <div class="name-avatar student-avatar">${initials}</div>
+                ${escapeHtml(record.student_name)}
+              </div>
+            </td>
+            <td>
+              <span class="reg-badge">${escapeHtml(record.reg_no)}</span>
+            </td>
+            <td>
+              <span class="login-count-badge">${record.total_logins}x</span>
+            </td>
+            <td class="time-cell">${formatDate(record.latest_login)}</td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        // Show table
+        loadingEl.style.display = 'none';
+        tableEl.style.display = 'table';
+
+      } catch (error) {
+        console.error('Error loading student history:', error);
+        loadingEl.innerHTML = `
+          <span class="empty-icon">⚠️</span>
+          <p style="color:#fca5a5;">Failed to load data.</p>
+          <p style="font-size:0.8rem;margin-top:8px;color:var(--text-muted);">Make sure server.js is running on port 3000.</p>
+        `;
+      }
+    }
+
+    // -------------------------------------------------------
+    // Load All History (called on page load and refresh)
+    // -------------------------------------------------------
+    async function loadAllHistory() {
+      const refreshBtn = document.getElementById('refresh-dashboard-btn');
+      const refreshIcon = document.getElementById('refresh-icon');
+      const lastUpdated = document.getElementById('last-updated');
+
+      // Animate refresh icon
+      refreshIcon.style.animation = 'spin 1s linear infinite';
+      refreshBtn.disabled = true;
+
+      // Run both fetches in parallel for speed
+      await Promise.all([
+        loadTeacherHistory(),
+        loadStudentHistory()
+      ]);
+
+      // Update "last updated" timestamp
+      const now = new Date().toLocaleString('en-US', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+      });
+      lastUpdated.textContent = `Last updated: ${now}`;
+
+      // Stop animation
+      refreshIcon.style.animation = '';
+      refreshBtn.disabled = false;
+    }
+
+    // -------------------------------------------------------
+    // Security: Escape HTML to prevent XSS attacks
+    // -------------------------------------------------------
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // -------------------------------------------------------
+    // Auto-refresh every 30 seconds
+    // -------------------------------------------------------
+    setInterval(loadAllHistory, 30000);
+
+    // -------------------------------------------------------
+    // Load data when page loads
+    // -------------------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      loadAllHistory();
+    });
+  </script>
+
+</body>
+</html>
