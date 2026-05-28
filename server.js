@@ -31,7 +31,7 @@ const db = mysql.createConnection({
   user: process.env.MYSQLUSER || 'root',
   password: process.env.MYSQLPASSWORD || 'swetha17',
   database: process.env.MYSQLDATABASE || 'school_db',
-  port: process.env.MYSQLPORT || 3307,
+  port: process.env.MYSQLPORT || 3306,
   multipleStatements: true  // Allows running multiple SQL statements at once
 });
 
@@ -42,8 +42,12 @@ db.connect((err) => {
   if (err) {
     console.error('❌ MySQL Connection Failed:', err.message);
     console.log('');
-    console.log('👉 Make sure MySQL is running and your password is correct in server.js');
-    process.exit(1); // Stop the server if DB connection fails
+    console.log('👉 Retrying connection...');
+    // Don't exit - let the app keep running and retry
+    setTimeout(() => {
+      db.connect();
+    }, 5000);
+    return;
   }
   console.log('✅ Connected to MySQL Server');
 
@@ -51,7 +55,7 @@ db.connect((err) => {
   db.query('CREATE DATABASE IF NOT EXISTS school_db', (err) => {
     if (err) {
       console.error('❌ Failed to create database:', err.message);
-      process.exit(1);
+      return;
     }
     console.log('✅ Database "school_db" ready');
 
@@ -59,7 +63,7 @@ db.connect((err) => {
     db.changeUser({ database: 'school_db' }, (err) => {
       if (err) {
         console.error('❌ Failed to switch database:', err.message);
-        process.exit(1);
+        return;
       }
 
       // Step 4: Create all required tables
@@ -288,3 +292,4 @@ app.get('/admin', (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Express server started on port ${PORT}`);
 });
+
