@@ -31,7 +31,7 @@ const db = mysql.createConnection({
   user: process.env.MYSQLUSER || 'root',
   password: process.env.MYSQLPASSWORD || 'swetha17',
   database: process.env.MYSQLDATABASE || 'school_db',
-  port: process.env.MYSQLPORT || 3307,
+  port: process.env.MYSQLPORT || 3306,
   multipleStatements: true  // Allows running multiple SQL statements at once
 });
 
@@ -288,3 +288,4 @@ app.get('/admin', (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Express server started on port ${PORT}`);
 });
+
