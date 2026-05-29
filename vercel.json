@@ -7,8 +7,12 @@
     }
   ],
   "routes": [
-    { "src": "/admin", "dest": "/dashboard.html" },
-    { "handle": "filesystem" },
+    { "src": "/student-login", "dest": "server.js", "methods": ["POST"] },
+    { "src": "/teacher-login", "dest": "server.js", "methods": ["POST"] },
+    { "src": "/student-history", "dest": "server.js", "methods": ["GET"] },
+    { "src": "/teacher-history", "dest": "server.js", "methods": ["GET"] },
+    { "src": "/admin", "dest": "server.js" },
+    { "src": "/(.*\\.(html|css|js|ico|png|jpg|svg))$", "dest": "public/$1" },
     { "src": "/(.*)", "dest": "server.js" }
   ]
 }

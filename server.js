@@ -26,55 +26,75 @@ app.use(express.static(path.join(__dirname, 'public'))); // Serve static files f
 // Uses environment variables for deployment (Railway, Render, etc.)
 // For local development, set these in a .env file or use defaults
 // -------------------------------------------------------
-const db = mysql.createConnection({
+const dbConfig = {
   host: process.env.MYSQLHOST || 'localhost',
   user: process.env.MYSQLUSER || 'root',
   password: process.env.MYSQLPASSWORD || 'swetha17',
-  database: process.env.MYSQLDATABASE || 'school_db',
   port: process.env.MYSQLPORT || 3306,
   multipleStatements: true  // Allows running multiple SQL statements at once
-});
+};
+
+// Only set database in config if cloud env variable is provided
+// (locally, we create the database ourselves)
+if (process.env.MYSQLDATABASE) {
+  dbConfig.database = process.env.MYSQLDATABASE;
+}
+
+const db = mysql.createConnection(dbConfig);
 
 // -------------------------------------------------------
-// Step 1: Connect to MySQL Server (without selecting a DB)
+// Step 1: Connect to MySQL Server and set up database
 // -------------------------------------------------------
 let dbConnected = false;
 let dbError = null;
 
+// Check if we're using a cloud database (env vars set)
+const isCloudDB = !!process.env.MYSQLHOST;
+
 db.connect((err) => {
   if (err) {
     console.error('❌ MySQL Connection Failed:', err.message);
+    console.error('   Error Code:', err.code);
     dbError = err.message;
     dbConnected = false;
     return;
   }
   console.log('✅ Connected to MySQL Server');
 
-  // Step 2: Create the database if it doesn't exist
-  db.query('CREATE DATABASE IF NOT EXISTS school_db', (err) => {
-    if (err) {
-      console.error('❌ Failed to create database:', err.message);
-      dbError = err.message;
-      dbConnected = false;
-      return;
-    }
-    console.log('✅ Database "school_db" ready');
-
-    // Step 3: Switch to school_db
-    db.changeUser({ database: 'school_db' }, (err) => {
+  if (isCloudDB) {
+    // Cloud MySQL (Railway, Aiven, etc.) — database already exists
+    // Just create the tables directly
+    console.log('☁️  Cloud database detected — skipping CREATE DATABASE');
+    dbConnected = true;
+    dbError = null;
+    createTables();
+  } else {
+    // Local MySQL — create database if it doesn't exist
+    db.query('CREATE DATABASE IF NOT EXISTS school_db', (err) => {
       if (err) {
-        console.error('❌ Failed to switch database:', err.message);
+        console.error('❌ Failed to create database:', err.message);
         dbError = err.message;
         dbConnected = false;
         return;
       }
+      console.log('✅ Database "school_db" ready');
 
-      // Step 4: Create all required tables
-      dbConnected = true;
-      dbError = null;
-      createTables();
+      // Switch to school_db
+      db.changeUser({ database: 'school_db' }, (err) => {
+        if (err) {
+          console.error('❌ Failed to switch database:', err.message);
+          dbError = err.message;
+          dbConnected = false;
+          return;
+        }
+
+        // Create all required tables
+        dbConnected = true;
+        dbError = null;
+        createTables();
+      });
     });
-  });
+  }
 });
 
 // -------------------------------------------------------
