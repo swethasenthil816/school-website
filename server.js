@@ -55,10 +55,31 @@ const pool = mysql.createPool(dbConfig);
 let tablesReady = false;
 
 // -------------------------------------------------------
-// Ensure tables exist (runs once per cold start)
+// DEBUG endpoint — NO DB needed, always responds immediately
 // -------------------------------------------------------
-async function ensureTables() {
-  if (tablesReady) return;
+app.get('/api/debug', (req, res) => {
+  res.json({
+    cloud_mode: isCloudDB,
+    env_vars: {
+      MYSQLHOST: process.env.MYSQLHOST ? '✅ SET (' + process.env.MYSQLHOST + ')' : '❌ NOT SET',
+      MYSQLUSER: process.env.MYSQLUSER ? '✅ SET' : '❌ NOT SET',
+      MYSQLPASSWORD: process.env.MYSQLPASSWORD ? '✅ SET' : '❌ NOT SET',
+      MYSQLDATABASE: process.env.MYSQLDATABASE ? '✅ SET (' + process.env.MYSQLDATABASE + ')' : '❌ NOT SET',
+      MYSQLPORT: process.env.MYSQLPORT ? '✅ SET (' + process.env.MYSQLPORT + ')' : '❌ NOT SET'
+    },
+    tables_ready: tablesReady,
+    config_host: dbConfig.host,
+    config_port: dbConfig.port,
+    config_database: dbConfig.database || '(not set)',
+    ssl_enabled: !!dbConfig.ssl
+  });
+});
+
+// -------------------------------------------------------
+// Ensure tables exist (lazy — only runs on first API call)
+// -------------------------------------------------------
+function ensureTables(callback) {
+  if (tablesReady) return callback();
 
   const queries = [
     `CREATE TABLE IF NOT EXISTS students (
@@ -86,23 +107,27 @@ async function ensureTables() {
     )`
   ];
 
-  try {
-    for (const q of queries) {
-      pool.query(q);
-    }
-    tablesReady = true;
-    console.log('✅ All tables ready');
-  } catch (err) {
-    console.error('❌ Error creating tables:', err.message);
+  let completed = 0;
+  let hasError = false;
+  for (const q of queries) {
+    pool.query(q, (err) => {
+      if (err && !hasError) {
+        hasError = true;
+        console.error('❌ Table creation error:', err.message);
+        return callback(err);
+      }
+      completed++;
+      if (completed === queries.length && !hasError) {
+        tablesReady = true;
+        console.log('✅ All tables ready');
+        callback();
+      }
+    });
   }
 }
 
-// -------------------------------------------------------
-// For local: create database if needed, then create tables
-// For cloud: just create tables
-// -------------------------------------------------------
+// For local only: create database at startup (non-blocking for cloud)
 if (!isCloudDB) {
-  // Local MySQL — create database + switch to it
   const tempDb = mysql.createConnection({
     host: dbConfig.host,
     user: dbConfig.user,
@@ -113,17 +138,11 @@ if (!isCloudDB) {
     if (err) console.error('❌ Create DB error:', err.message);
     else console.log('✅ Database "school_db" ready');
     tempDb.end();
-    // Update pool config with database
-    dbConfig.database = 'school_db';
-    ensureTables();
   });
-} else {
-  console.log('☁️  Cloud mode — Host:', dbConfig.host, '| Port:', dbConfig.port);
-  ensureTables();
 }
 
 // -------------------------------------------------------
-// Middleware: check DB connection before API calls (with timeout)
+// Middleware: check DB connection + ensure tables (with timeout)
 // -------------------------------------------------------
 const checkDbConnection = (req, res, next) => {
   const timeout = setTimeout(() => {
@@ -137,33 +156,26 @@ const checkDbConnection = (req, res, next) => {
   pool.query('SELECT 1', (err) => {
     clearTimeout(timeout);
     if (err) {
-      console.error('❌ DB health check failed:', err.message);
+      console.error('❌ DB check failed:', err.message, '| Code:', err.code);
       return res.status(500).json({
         success: false,
         message: 'Database connection failed.',
         error: err.message
       });
     }
-    next();
+    // Ensure tables exist on first successful connection
+    ensureTables((tableErr) => {
+      if (tableErr) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to create tables.',
+          error: tableErr.message
+        });
+      }
+      next();
+    });
   });
 };
-
-// -------------------------------------------------------
-// DEBUG endpoint — shows env var status (not values) for troubleshooting
-// -------------------------------------------------------
-app.get('/api/debug', (req, res) => {
-  res.json({
-    cloud_mode: isCloudDB,
-    env_vars: {
-      MYSQLHOST: process.env.MYSQLHOST ? '✅ SET (' + process.env.MYSQLHOST + ')' : '❌ NOT SET',
-      MYSQLUSER: process.env.MYSQLUSER ? '✅ SET' : '❌ NOT SET',
-      MYSQLPASSWORD: process.env.MYSQLPASSWORD ? '✅ SET' : '❌ NOT SET',
-      MYSQLDATABASE: process.env.MYSQLDATABASE ? '✅ SET (' + process.env.MYSQLDATABASE + ')' : '❌ NOT SET',
-      MYSQLPORT: process.env.MYSQLPORT ? '✅ SET (' + process.env.MYSQLPORT + ')' : '❌ NOT SET'
-    },
-    tables_ready: tablesReady
-  });
-});
 
 // ============================================================
 //  API ROUTES
