@@ -22,9 +22,8 @@ app.use(bodyParser.urlencoded({ extended: true })); // Parse URL-encoded bodies
 app.use(express.static(path.join(__dirname, 'public'))); // Serve static files from /public
 
 // -------------------------------------------------------
-// MySQL Database Connection
+// MySQL Database Connection (Serverless-friendly with connection pool)
 // Uses environment variables for deployment (Railway, Render, etc.)
-// For local development, set these in a .env file or use defaults
 // -------------------------------------------------------
 const isCloudDB = !!process.env.MYSQLHOST;
 
@@ -32,166 +31,111 @@ const dbConfig = {
   host: process.env.MYSQLHOST || 'localhost',
   user: process.env.MYSQLUSER || 'root',
   password: process.env.MYSQLPASSWORD || 'swetha17',
-  port: process.env.MYSQLPORT || 3306,
-  multipleStatements: true,
-  connectTimeout: 10000  // 10 second timeout
+  port: parseInt(process.env.MYSQLPORT) || 3306,
+  waitForConnections: true,
+  connectionLimit: 5,
+  queueLimit: 0
 };
 
-// Set database for cloud (Railway provides it), skip for local (we create it)
+// Set database for cloud, skip for local (we create it)
 if (process.env.MYSQLDATABASE) {
   dbConfig.database = process.env.MYSQLDATABASE;
 }
 
-// Railway and most cloud MySQL providers require SSL
+// Cloud MySQL providers (Railway) require SSL
 if (isCloudDB) {
   dbConfig.ssl = { rejectUnauthorized: false };
 }
 
-let db = mysql.createConnection(dbConfig);
-let dbConnected = false;
-let dbError = null;
+// Use a connection pool (better for serverless — reuses connections)
+const pool = mysql.createPool(dbConfig);
+
+// Track if tables have been created
+let tablesReady = false;
 
 // -------------------------------------------------------
-// Connect to MySQL and set up tables
+// Ensure tables exist (runs once per cold start)
 // -------------------------------------------------------
-function connectDB() {
-  db = mysql.createConnection(dbConfig);
+async function ensureTables() {
+  if (tablesReady) return;
 
-  db.connect((err) => {
-    if (err) {
-      console.error('❌ MySQL Connection Failed:', err.message);
-      console.error('   Error Code:', err.code);
-      console.error('   Host:', dbConfig.host, '| Port:', dbConfig.port);
-      dbError = err.message;
-      dbConnected = false;
-      return;
-    }
-    console.log('✅ Connected to MySQL Server');
-    console.log('   Host:', dbConfig.host, '| Port:', dbConfig.port, '| Cloud:', isCloudDB);
-
-    if (isCloudDB) {
-      // Cloud MySQL — database already exists, just create tables
-      console.log('☁️  Cloud database detected — skipping CREATE DATABASE');
-      dbConnected = true;
-      dbError = null;
-      createTables();
-    } else {
-      // Local MySQL — create database first
-      db.query('CREATE DATABASE IF NOT EXISTS school_db', (err) => {
-        if (err) {
-          console.error('❌ Failed to create database:', err.message);
-          dbError = err.message;
-          return;
-        }
-        console.log('✅ Database "school_db" ready');
-
-        db.changeUser({ database: 'school_db' }, (err) => {
-          if (err) {
-            console.error('❌ Failed to switch database:', err.message);
-            dbError = err.message;
-            return;
-          }
-          dbConnected = true;
-          dbError = null;
-          createTables();
-        });
-      });
-    }
-  });
-
-  // Handle connection errors (auto-reconnect)
-  db.on('error', (err) => {
-    console.error('MySQL Error:', err.message);
-    dbConnected = false;
-    dbError = err.message;
-    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
-      console.log('🔄 Reconnecting to MySQL...');
-      connectDB();
-    }
-  });
-}
-
-// Start the connection
-connectDB();
-
-// -------------------------------------------------------
-// Step 4: Create Tables if They Don't Exist
-// -------------------------------------------------------
-function createTables() {
-  const createStudentsTable = `
-    CREATE TABLE IF NOT EXISTS students (
+  const queries = [
+    `CREATE TABLE IF NOT EXISTS students (
       id INT AUTO_INCREMENT PRIMARY KEY,
       student_name VARCHAR(100) NOT NULL,
       reg_no VARCHAR(50) NOT NULL UNIQUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  const createTeachersTable = `
-    CREATE TABLE IF NOT EXISTS teachers (
+    )`,
+    `CREATE TABLE IF NOT EXISTS teachers (
       id INT AUTO_INCREMENT PRIMARY KEY,
       username VARCHAR(100) NOT NULL UNIQUE,
       password VARCHAR(255) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  const createStudentLoginHistoryTable = `
-    CREATE TABLE IF NOT EXISTS student_login_history (
+    )`,
+    `CREATE TABLE IF NOT EXISTS student_login_history (
       id INT AUTO_INCREMENT PRIMARY KEY,
       student_name VARCHAR(100) NOT NULL,
       reg_no VARCHAR(50) NOT NULL,
       login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  const createTeacherLoginHistoryTable = `
-    CREATE TABLE IF NOT EXISTS teacher_login_history (
+    )`,
+    `CREATE TABLE IF NOT EXISTS teacher_login_history (
       id INT AUTO_INCREMENT PRIMARY KEY,
       username VARCHAR(100) NOT NULL,
       login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
+    )`
+  ];
 
-  // Run all table creation queries
-  db.query(createStudentsTable, (err) => {
-    if (err) { console.error('❌ Error creating students table:', err.message); return; }
-    console.log('✅ Table "students" ready');
-  });
-
-  db.query(createTeachersTable, (err) => {
-    if (err) { console.error('❌ Error creating teachers table:', err.message); return; }
-    console.log('✅ Table "teachers" ready');
-  });
-
-  db.query(createStudentLoginHistoryTable, (err) => {
-    if (err) { console.error('❌ Error creating student_login_history table:', err.message); return; }
-    console.log('✅ Table "student_login_history" ready');
-  });
-
-  db.query(createTeacherLoginHistoryTable, (err) => {
-    if (err) { console.error('❌ Error creating teacher_login_history table:', err.message); return; }
-    console.log('✅ Table "teacher_login_history" ready');
-  });
-
-  console.log('');
-  console.log('🚀 Server running at: http://localhost:' + PORT);
-  console.log('📌 Open access mode: any student name/reg_no and any teacher username/password will work.');
-  console.log('');
+  try {
+    for (const q of queries) {
+      pool.query(q);
+    }
+    tablesReady = true;
+    console.log('✅ All tables ready');
+  } catch (err) {
+    console.error('❌ Error creating tables:', err.message);
+  }
 }
 
 // -------------------------------------------------------
-// Middleware to check database connection status
+// For local: create database if needed, then create tables
+// For cloud: just create tables
+// -------------------------------------------------------
+if (!isCloudDB) {
+  // Local MySQL — create database + switch to it
+  const tempDb = mysql.createConnection({
+    host: dbConfig.host,
+    user: dbConfig.user,
+    password: dbConfig.password,
+    port: dbConfig.port
+  });
+  tempDb.query('CREATE DATABASE IF NOT EXISTS school_db', (err) => {
+    if (err) console.error('❌ Create DB error:', err.message);
+    else console.log('✅ Database "school_db" ready');
+    tempDb.end();
+    // Update pool config with database
+    dbConfig.database = 'school_db';
+    ensureTables();
+  });
+} else {
+  console.log('☁️  Cloud mode — Host:', dbConfig.host, '| Port:', dbConfig.port);
+  ensureTables();
+}
+
+// -------------------------------------------------------
+// Middleware: check DB connection before API calls
 // -------------------------------------------------------
 const checkDbConnection = (req, res, next) => {
-  if (!dbConnected) {
-    return res.status(500).json({
-      success: false,
-      message: 'Database connection is not established. If you are running on Vercel, please make sure you have set up your cloud MySQL database and configured the environment variables (MYSQLHOST, MYSQLUSER, MYSQLPASSWORD, MYSQLDATABASE, MYSQLPORT) in the Vercel Dashboard.',
-      error: dbError
-    });
-  }
-  next();
+  pool.query('SELECT 1', (err) => {
+    if (err) {
+      console.error('❌ DB health check failed:', err.message);
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection failed. Please check your MySQL configuration.',
+        error: err.message
+      });
+    }
+    next();
+  });
 };
 
 // ============================================================
@@ -217,7 +161,7 @@ app.post('/student-login', checkDbConnection, (req, res) => {
 
   // Auto-register the student if they don't exist yet (INSERT IGNORE skips duplicate reg_no)
   const upsertQuery = 'INSERT IGNORE INTO students (student_name, reg_no) VALUES (?, ?)';
-  db.query(upsertQuery, [name, regNo], (err) => {
+  pool.query(upsertQuery, [name, regNo], (err) => {
     if (err) {
       console.error('DB Error (student upsert):', err.message);
       return res.status(500).json({ success: false, message: 'Server error. Please try again.' });
@@ -225,7 +169,7 @@ app.post('/student-login', checkDbConnection, (req, res) => {
 
     // Log this login in student_login_history
     const logQuery = 'INSERT INTO student_login_history (student_name, reg_no) VALUES (?, ?)';
-    db.query(logQuery, [name, regNo], (err) => {
+    pool.query(logQuery, [name, regNo], (err) => {
       if (err) console.error('Error logging student login:', err.message);
     });
 
@@ -260,7 +204,7 @@ app.post('/teacher-login', checkDbConnection, (req, res) => {
   // Auto-register the teacher if username doesn't exist yet.
   // INSERT IGNORE skips the insert if username already exists (keeps original password).
   const upsertQuery = 'INSERT IGNORE INTO teachers (username, password) VALUES (?, ?)';
-  db.query(upsertQuery, [user, password], (err) => {
+  pool.query(upsertQuery, [user, password], (err) => {
     if (err) {
       console.error('DB Error (teacher upsert):', err.message);
       return res.status(500).json({ success: false, message: 'Server error. Please try again.' });
@@ -268,7 +212,7 @@ app.post('/teacher-login', checkDbConnection, (req, res) => {
 
     // Log this login in teacher_login_history
     const logQuery = 'INSERT INTO teacher_login_history (username) VALUES (?)';
-    db.query(logQuery, [user], (err) => {
+    pool.query(logQuery, [user], (err) => {
       if (err) console.error('Error logging teacher login:', err.message);
     });
 
@@ -299,7 +243,7 @@ app.get('/teacher-history', checkDbConnection, (req, res) => {
     ORDER BY latest_login DESC
   `;
 
-  db.query(query, (err, results) => {
+  pool.query(query, (err, results) => {
     if (err) {
       console.error('DB Error (teacher-history):', err.message);
       return res.status(500).json({ success: false, message: 'Failed to fetch teacher history.' });
@@ -325,7 +269,7 @@ app.get('/student-history', checkDbConnection, (req, res) => {
     ORDER BY latest_login DESC
   `;
 
-  db.query(query, (err, results) => {
+  pool.query(query, (err, results) => {
     if (err) {
       console.error('DB Error (student-history):', err.message);
       return res.status(500).json({ success: false, message: 'Failed to fetch student history.' });
