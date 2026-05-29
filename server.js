@@ -26,76 +26,93 @@ app.use(express.static(path.join(__dirname, 'public'))); // Serve static files f
 // Uses environment variables for deployment (Railway, Render, etc.)
 // For local development, set these in a .env file or use defaults
 // -------------------------------------------------------
+const isCloudDB = !!process.env.MYSQLHOST;
+
 const dbConfig = {
   host: process.env.MYSQLHOST || 'localhost',
   user: process.env.MYSQLUSER || 'root',
   password: process.env.MYSQLPASSWORD || 'swetha17',
   port: process.env.MYSQLPORT || 3306,
-  multipleStatements: true  // Allows running multiple SQL statements at once
+  multipleStatements: true,
+  connectTimeout: 10000  // 10 second timeout
 };
 
-// Only set database in config if cloud env variable is provided
-// (locally, we create the database ourselves)
+// Set database for cloud (Railway provides it), skip for local (we create it)
 if (process.env.MYSQLDATABASE) {
   dbConfig.database = process.env.MYSQLDATABASE;
 }
 
-const db = mysql.createConnection(dbConfig);
+// Railway and most cloud MySQL providers require SSL
+if (isCloudDB) {
+  dbConfig.ssl = { rejectUnauthorized: false };
+}
 
-// -------------------------------------------------------
-// Step 1: Connect to MySQL Server and set up database
-// -------------------------------------------------------
+let db = mysql.createConnection(dbConfig);
 let dbConnected = false;
 let dbError = null;
 
-// Check if we're using a cloud database (env vars set)
-const isCloudDB = !!process.env.MYSQLHOST;
+// -------------------------------------------------------
+// Connect to MySQL and set up tables
+// -------------------------------------------------------
+function connectDB() {
+  db = mysql.createConnection(dbConfig);
 
-db.connect((err) => {
-  if (err) {
-    console.error('❌ MySQL Connection Failed:', err.message);
-    console.error('   Error Code:', err.code);
-    dbError = err.message;
-    dbConnected = false;
-    return;
-  }
-  console.log('✅ Connected to MySQL Server');
+  db.connect((err) => {
+    if (err) {
+      console.error('❌ MySQL Connection Failed:', err.message);
+      console.error('   Error Code:', err.code);
+      console.error('   Host:', dbConfig.host, '| Port:', dbConfig.port);
+      dbError = err.message;
+      dbConnected = false;
+      return;
+    }
+    console.log('✅ Connected to MySQL Server');
+    console.log('   Host:', dbConfig.host, '| Port:', dbConfig.port, '| Cloud:', isCloudDB);
 
-  if (isCloudDB) {
-    // Cloud MySQL (Railway, Aiven, etc.) — database already exists
-    // Just create the tables directly
-    console.log('☁️  Cloud database detected — skipping CREATE DATABASE');
-    dbConnected = true;
-    dbError = null;
-    createTables();
-  } else {
-    // Local MySQL — create database if it doesn't exist
-    db.query('CREATE DATABASE IF NOT EXISTS school_db', (err) => {
-      if (err) {
-        console.error('❌ Failed to create database:', err.message);
-        dbError = err.message;
-        dbConnected = false;
-        return;
-      }
-      console.log('✅ Database "school_db" ready');
-
-      // Switch to school_db
-      db.changeUser({ database: 'school_db' }, (err) => {
+    if (isCloudDB) {
+      // Cloud MySQL — database already exists, just create tables
+      console.log('☁️  Cloud database detected — skipping CREATE DATABASE');
+      dbConnected = true;
+      dbError = null;
+      createTables();
+    } else {
+      // Local MySQL — create database first
+      db.query('CREATE DATABASE IF NOT EXISTS school_db', (err) => {
         if (err) {
-          console.error('❌ Failed to switch database:', err.message);
+          console.error('❌ Failed to create database:', err.message);
           dbError = err.message;
-          dbConnected = false;
           return;
         }
+        console.log('✅ Database "school_db" ready');
 
-        // Create all required tables
-        dbConnected = true;
-        dbError = null;
-        createTables();
+        db.changeUser({ database: 'school_db' }, (err) => {
+          if (err) {
+            console.error('❌ Failed to switch database:', err.message);
+            dbError = err.message;
+            return;
+          }
+          dbConnected = true;
+          dbError = null;
+          createTables();
+        });
       });
-    });
-  }
-});
+    }
+  });
+
+  // Handle connection errors (auto-reconnect)
+  db.on('error', (err) => {
+    console.error('MySQL Error:', err.message);
+    dbConnected = false;
+    dbError = err.message;
+    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+      console.log('🔄 Reconnecting to MySQL...');
+      connectDB();
+    }
+  });
+}
+
+// Start the connection
+connectDB();
 
 // -------------------------------------------------------
 // Step 4: Create Tables if They Don't Exist
