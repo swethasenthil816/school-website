@@ -273,12 +273,11 @@ app.post('/teacher-login', checkDbConnection, (req, res) => {
 // -------------------------------------------------------
 app.get('/teacher-history', checkDbConnection, (req, res) => {
   const query = `
-    SELECT 
-      MIN(username) AS username,
-      MAX(login_time) AS latest_login,
-      COUNT(*) AS total_logins
+    SELECT username,
+           COUNT(*) AS total_logins,
+           MAX(login_time) AS latest_login
     FROM teacher_login_history
-    GROUP BY LOWER(TRIM(username))
+    GROUP BY username
     ORDER BY latest_login DESC
   `;
 
@@ -298,13 +297,12 @@ app.get('/teacher-history', checkDbConnection, (req, res) => {
 // -------------------------------------------------------
 app.get('/student-history', checkDbConnection, (req, res) => {
   const query = `
-    SELECT 
-      MIN(student_name) AS student_name,
-      MIN(reg_no) AS reg_no,
-      MAX(login_time) AS latest_login,
-      COUNT(*) AS total_logins
+    SELECT student_name,
+           reg_no,
+           COUNT(*) AS total_logins,
+           MAX(login_time) AS latest_login
     FROM student_login_history
-    GROUP BY LOWER(TRIM(student_name))
+    GROUP BY student_name, reg_no
     ORDER BY latest_login DESC
   `;
 
