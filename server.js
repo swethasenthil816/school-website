@@ -304,7 +304,7 @@ app.get('/student-history', checkDbConnection, (req, res) => {
       MAX(login_time) AS latest_login,
       COUNT(*) AS total_logins
     FROM student_login_history
-    GROUP BY LOWER(TRIM(student_name)), LOWER(TRIM(reg_no))
+    GROUP BY LOWER(TRIM(student_name))
     ORDER BY latest_login DESC
   `;
 
