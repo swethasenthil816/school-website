@@ -34,7 +34,8 @@ const dbConfig = {
   port: parseInt(process.env.MYSQLPORT) || 3306,
   waitForConnections: true,
   connectionLimit: 5,
-  queueLimit: 0
+  queueLimit: 0,
+  connectTimeout: 5000  // 5 second timeout — fail fast, don't hang
 };
 
 // Set database for cloud, skip for local (we create it)
@@ -122,21 +123,47 @@ if (!isCloudDB) {
 }
 
 // -------------------------------------------------------
-// Middleware: check DB connection before API calls
+// Middleware: check DB connection before API calls (with timeout)
 // -------------------------------------------------------
 const checkDbConnection = (req, res, next) => {
+  const timeout = setTimeout(() => {
+    return res.status(500).json({
+      success: false,
+      message: 'Database connection timed out (5s). Check your MySQL credentials.',
+      error: 'TIMEOUT'
+    });
+  }, 5000);
+
   pool.query('SELECT 1', (err) => {
+    clearTimeout(timeout);
     if (err) {
       console.error('❌ DB health check failed:', err.message);
       return res.status(500).json({
         success: false,
-        message: 'Database connection failed. Please check your MySQL configuration.',
+        message: 'Database connection failed.',
         error: err.message
       });
     }
     next();
   });
 };
+
+// -------------------------------------------------------
+// DEBUG endpoint — shows env var status (not values) for troubleshooting
+// -------------------------------------------------------
+app.get('/api/debug', (req, res) => {
+  res.json({
+    cloud_mode: isCloudDB,
+    env_vars: {
+      MYSQLHOST: process.env.MYSQLHOST ? '✅ SET (' + process.env.MYSQLHOST + ')' : '❌ NOT SET',
+      MYSQLUSER: process.env.MYSQLUSER ? '✅ SET' : '❌ NOT SET',
+      MYSQLPASSWORD: process.env.MYSQLPASSWORD ? '✅ SET' : '❌ NOT SET',
+      MYSQLDATABASE: process.env.MYSQLDATABASE ? '✅ SET (' + process.env.MYSQLDATABASE + ')' : '❌ NOT SET',
+      MYSQLPORT: process.env.MYSQLPORT ? '✅ SET (' + process.env.MYSQLPORT + ')' : '❌ NOT SET'
+    },
+    tables_ready: tablesReady
+  });
+});
 
 // ============================================================
 //  API ROUTES
